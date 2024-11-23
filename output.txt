@@ -1,0 +1,1 @@
+Для заполнения нужны следующие данные: Reg,CELL,SW,BSC,BCF,LAC,RAC2g,Имя сайта,Sector_name,RAC3g,URA,RNC_ID
