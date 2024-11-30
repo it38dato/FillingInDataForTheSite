@@ -155,39 +155,31 @@ while repeat == "y":
         rdbfile2g = rdbfile2g.reset_index()
         print(rdbfile2g)
         #6 Отсортировать файлы, собранные из rdb, в котором есть данные LAC И BSC:
-        #print(prefixs)
-        #for kmlfile in listnetfiles:
-            #print(kmlfile)
-        #    if prefixs[0] in kmlfile:
-        #        print(kmlfile)
-        #if prefixs[0] in file:
-        #    print("Это выгрузка из всех сайтов RDB")
-        #6 Отсортировать файлы, собранные из rdb, в котором есть данные LAC И BSC:
         netpath = "data/"
+        lengthdir=len(netpath)
         listreg=['IRK','MGD','SAH','KHA','KAM']
-        listnetfiles = []
-        listnetdirs = []
-        needdir=[]
         for root, dirs, files in os.walk(netpath):
-            #print(dirs) 
-            listnetdirs.append(dirs)
-        #print(listnetdirs[0])        
-            for i in listnetdirs[0]:
-                #print(i)
-                #with open("output.txt", "a") as outfile:
-                #    outfile.write(i+"\n")
-                if (i in listreg) and (i != "old"):
-                    #print(i)
-                    needdir.append(i)
-                    needdir = list(dict.fromkeys(needdir))
-                    #print(needdir)
-                    for kmlfile in files:
+            alldir = root[lengthdir:]
+            #print(alldir) 
+            if ("old" in alldir):
+                #print("FALSE")
+                continue
+            elif alldir in listreg:
+                #print(alldir)
+                for kmlfile in files:
+                    #print(kmlfile)
+                    if prefixs[0] in kmlfile:
+                        #print("Это выгрузка из всех сайтов RDB")
                         print(kmlfile)
-                        #if prefixs[0] in kmlfile:
-                else:
-                    continue
-        #print(needdir)
+                        with open(kmlfile,"r", encoding="utf8") as rdbfile:
+                            file = rdbfile.read()
+                        
+                        print(file)
+                        #7 Добавить данные LAC и BCF в таблицу:
 
+            else:
+                #print("TRUE")
+                continue
     elif choicecmd == '2':
         print("Ты выбрал Заполненние данных для БС Ericsson")
         with open("output.txt", "a") as outfile:
