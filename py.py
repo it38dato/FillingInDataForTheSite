@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import re
+from math import sqrt
 #1 перечислить список команд, которые может выполнить программа:
 repeat="y"
 with open("output.txt", "w") as outfile:
@@ -33,6 +34,10 @@ while repeat == "y":
         newbslist=[]
         coordlist=[]
         prefixs=[]
+        oldbslist=[]
+        olddatalist=[]
+        datasites = dict()
+        dataloldsites = dict()
         for file in listfiles:
             print("Считываю данные из файла: ", file)
             #4 Добавить имееющиеся данные в таблице из еженедельной выгрузки:
@@ -139,25 +144,39 @@ while repeat == "y":
         tableBs4g = pd.merge(unloading4g, ces4g, left_on='Sector_name', right_on='Sector_name', how='inner')
         #print(tableBs2g)
         #print(tableBs4g)
-        print("Корректирую данные из rdb")
+        print("Корректирую данные из файла")
         #print(newbslist)
+        #print(" - вывожу Список базовых станций")
         #print(coordlist)
-        datasites = dict()
+        #print(" - вывожу Список координат")
         remainder = (len(coordlist)//len(newbslist))
         #print(remainder)
         for numeration in range(len(newbslist)):
             #print(numeration)
             datasites[newbslist[numeration]] = [coordlist[y] for y in range(remainder*numeration,remainder*numeration+remainder)]
         #print(datasites)
+        print(" - Добавляю словарь с названиями базовых станций и координатами.")
         cols = ["longitude", "latitude"]
-        rdbfile2g = pd.DataFrame()
-        rdbfile2g = pd.DataFrame.from_dict(datasites, orient='index', columns=cols)
-        rdbfile2g = rdbfile2g.reset_index()
-        print(rdbfile2g)
+        newdatatable = pd.DataFrame()
+        newdatatable = pd.DataFrame.from_dict(datasites, orient='index', columns=cols)
+        newdatatable = newdatatable.reset_index()
+        #print(newdatatable)
+        delcol=newdatatable["index"]
+        newdatatable=newdatatable.drop("index", axis=1)
+        newdatatable.insert(0, "newbs", delcol)
+        delcol=newdatatable["longitude"]
+        newdatatable=newdatatable.drop("longitude", axis=1)
+        newdatatable.insert(1, "longitudeY1", delcol)
+        delcol=newdatatable["latitude"]
+        newdatatable=newdatatable.drop("latitude", axis=1)
+        newdatatable.insert(2, "latitudeX1", delcol)
+        print(newdatatable)
+        print(" - Добавляю таблицу из словаря.")
         #6 Отсортировать файлы, собранные из rdb, в котором есть данные LAC И BSC:
         netpath = "data/"
+        print("Корректирую данные из файла")
         lengthdir=len(netpath)
-        listreg=['IRK','MGD','SAH','KHA','KAM']
+        listreg=["IRK","MGD","SAH","KHA","KAM"]
         for root, dirs, files in os.walk(netpath):
             alldir = root[lengthdir:]
             #print(alldir) 
@@ -170,16 +189,122 @@ while repeat == "y":
                     #print(kmlfile)
                     if prefixs[0] in kmlfile:
                         #print("Это выгрузка из всех сайтов RDB")
-                        print(kmlfile)
-                        with open(kmlfile,"r", encoding="utf8") as rdbfile:
+                        print("Считываю данные из файла: ", kmlfile)
+                        #print(kmlfile)                        
+                        needdir = netpath+alldir+"/"+kmlfile
+                        #print(needdir)
+                        #with open(kmlfile,"r", encoding="utf8") as rdbfile:
+                        with open(needdir,"r", encoding="utf8") as rdbfile:
                             file = rdbfile.read()
-                        
-                        print(file)
-                        #7 Добавить данные LAC и BCF в таблицу:
-
+                        #print(file) 
+                        #7 Добавить данные LAC и BSC в таблицу:
+                        Placemark = re.findall(r"<Placemark>(.*?)</Placemark>", file, re.DOTALL)
+                        for i in Placemark:
+                            #print(i)
+                            if ("<longitude>" in i) and ("LAC" in i) and ("BSC: " in i):
+                                #print(i)
+                                if ("<longitude></longitude>" in i) and ("<latitude></latitude>" in i):
+                                    #print(" - избавляюсь от незаполненных координат для БС")
+                                    #with open("output.txt", "a") as outfile:
+                                    #    outfile.write("Недостающие данные (Координаты, Lac, SC)!\n")
+                                    continue
+                                else:
+                                    listbs = re.findall(r"<name>(.*?)</name>", i, re.DOTALL)
+                                    #print(" - проверяю корректность заполнения названий БС")
+                                    for bs in listbs:
+                                        if (len(bs)==6) == True:
+                                            #print(bs)
+                                            #with open("output.txt", "a") as outfile:
+                                            #    outfile.write(bs+"\n")
+                                            oldbslist.append(bs)
+                                            #print(" - Добавляю в Список название")
+                                        else:
+                                            with open("output.txt", "a") as outfile:
+                                                outfile.write("Имя базой станции "+ bs +" некорректного формата!\n")
+                                            continue
+                                    listcoords = re.findall(r"<longitude>(.*?)</latitude>", i, re.DOTALL)
+                                    #print(" - проверяю корректность заполнения координат")
+                                    for coords in listcoords:
+                                        #print(coords)
+                                        coordinates = coords.split("</longitude>\n     <latitude>")
+                                        #print(coordinates)
+                                        longitude = coordinates[0]
+                                        latitude = coordinates[1]
+                                        #print(longitude + " " + latitude + "\n")
+                                        #print(" - корректирую заполнение координат")
+                                        #with open("output.txt", "a") as outfile:
+                                        #    outfile.write(longitude + " " + latitude + "\n")
+                                        olddatalist.append(longitude)
+                                        olddatalist.append(latitude)
+                                        #print(" - Добавляю в Список коорднат")
+                                    listbsctac = re.findall(r"<description>BSC: (.*?)</description>", i, re.DOTALL)
+                                    #print(" - проверяю корректность заполнения LAC и BSC")
+                                    #print(listbsctac)
+                                    for bsctac in listbsctac:
+                                        #print(bsctac)
+                                        data = bsctac.split(" LAC: ")
+                                        #print(data)
+                                        bsc = data[0]
+                                        lac = data[1]
+                                        #print(bsc + " " + lac + "\n")
+                                        #print(" - корректирую заполнение LAC и BSC")
+                                        #with open("output.txt", "a") as outfile:
+                                        #    outfile.write(bsc + " " + lac + "\n")
+                                        olddatalist.append(bsc)
+                                        olddatalist.append(lac)
+                                        #print(" - Добавляю в Список LAC и BSC")
+                            elif ("<longitude>" in i) and ("LAC" in i) and ("URA: " in i):
+                                #print("ВОЗМОЖНО, эти данные понадобятся для заполнения 3g!")
+                                #print(i)
+                                continue
+                            else:
+                                #print("Недостающие данные (Координаты, Lac, BSC)")
+                                #with open("output.txt", "a") as outfile:
+                                #    outfile.write("Недостающие данные (Координаты, Lac, BSC)!\n")
+                                #break
+                                continue
+                        #print(oldbslist)
+                        #print(" - Список название БС")
+                        #print(olddatalist)
+                        #print(" - Список коорднат, Lac, BSC")
             else:
                 #print("TRUE")
                 continue
+        #8 Добавить в пустой словарь название БС, координаты, LAC И BSC:
+        #print(oldbslist)
+        #print(olddatalist)
+        remainder = (len(olddatalist)//len(oldbslist))
+        for numeration in range(len(oldbslist)):
+            #print(numeration)
+            dataloldsites[oldbslist[numeration]] = [olddatalist[y] for y in range(remainder*numeration,remainder*numeration+remainder)]
+        #print(dataloldsites)
+        print(" - Добавляю словарь с названиями соседних базовых станций и координатами, LAC И BSC.")
+        #9 Добавить в пустую таблицу данные из словаря:
+        cols = ["longitude", "latitude", "BSC", "LAC"]
+        olddatatable = pd.DataFrame()
+        olddatatable = pd.DataFrame()
+        olddatatable = pd.DataFrame.from_dict(dataloldsites, orient='index', columns=cols)
+        olddatatable = olddatatable.reset_index()
+        delcol=olddatatable["index"]
+        olddatatable=olddatatable.drop("index", axis=1)
+        olddatatable.insert(0, "oldbs", delcol)
+        delcol=olddatatable["longitude"]
+        olddatatable=olddatatable.drop("longitude", axis=1)
+        olddatatable.insert(1, "longitudeY2", delcol)
+        delcol=olddatatable["latitude"]
+        olddatatable=olddatatable.drop("latitude", axis=1)
+        olddatatable.insert(2, "latitudeX2", delcol)
+        print(olddatatable)
+        print(" - Добавляю таблицу из словаря.")
+        #10 Найти ближайшего соседа базовой станции по формуле sqrt((x1-x2) * (x1-x2) + (y1-y2) * (y1-y2)):
+        newNeighbourTable = newdatatable.merge(olddatatable, how='cross')        
+        print(" - Добавляю общую таблицу.")
+        newNeighbourTable['distance'] = newNeighbourTable['latitudeX1'].astype(float) + newNeighbourTable['latitudeX2'].astype(float)
+        print(newNeighbourTable)
+        #print(newNeighbourTable.dtypes)
+
+
+
     elif choicecmd == '2':
         print("Ты выбрал Заполненние данных для БС Ericsson")
         with open("output.txt", "a") as outfile:
